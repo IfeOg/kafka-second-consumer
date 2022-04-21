@@ -2,6 +2,7 @@ package com.example.lynxlaststand.service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -13,13 +14,14 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Field;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.result.UpdateResult;
+import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +31,7 @@ import com.example.lynxlaststand.model.Client;
 import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.Updates.push;
 import static com.mongodb.client.model.Updates.set;
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.addFields;
 
 @Service
 public class KafkaConsumerService {
@@ -49,47 +52,31 @@ public class KafkaConsumerService {
 
         System.out.println(curatedClient.isAtRisk());
 
-        if (curatedClient.getId() != 0){
-            MongoDatabase updateClient = (MongoDatabase) mongoClient.getDatabase("curatedClient");
-            MongoCollection clientCollection = (MongoCollection) updateClient.getCollection("allSingleClientsCuratedTest");
+        if (curatedClient.getId() != 0) {
+            MongoDatabase updateClient = (MongoDatabase) mongoClient.getDatabase("allSingleClientsCuratedTest");
+            MongoCollection clientCollection = (MongoCollection) updateClient.getCollection("curatedClient");
 
             //find ID
             Bson idQuery = eq("_id", curatedClient.getId());
+            System.out.print(clientCollection);
             Bson newFields = set("Gambling", curatedClient.isGambling());
-            UpdateOptions options = new UpdateOptions().upsert(true);
+            Bson newFields2 = set("Crypto", curatedClient.isCrypto());
+            UpdateOptions options = new UpdateOptions().upsert(false);
+
+            //Only update the 1st database "atRisk" field if the second database atRisk = true
+            if (curatedClient.isAtRisk()) {
+
+                Bson newFields3 = set("atRisk", curatedClient.isAtRisk());
+                UpdateResult updateResult3 = clientCollection.updateOne(idQuery, newFields3, options);
+            }
+
             UpdateResult updateResult = clientCollection.updateOne(idQuery, newFields, options);
-
-            //idQuery.put("_id", curatedClient.getId());
-
-            //append
-            //BasicDBObject newFields = new BasicDBObject();
-            //newFields.put("Gambling", curatedClient.isGambling());
-            //newFields.append("Crypto", curatedClient.isCrypto());
-           // newFields.append("At Risk", curatedClient.isAtRisk());
-
-            ////BasicDBObject setQuery = new BasicDBObject("$set", newFields);
-            //setQuery.append("$set", newFields);
-
-
-
-           // clientCollection.updateOne(idQuery, setQuery);
-            //clientRepository.save(curatedClient);
-
+            UpdateResult updateResult2 = clientCollection.updateOne(idQuery, newFields2, options);
 
 
 
 
         }
-
-
-        //Optional<Client> id = clientRepository.findById(String.valueOf(curatedClient.getId()));
-        //System.out.println(id);
-
-
-
-
-
     }
-
 
 }
